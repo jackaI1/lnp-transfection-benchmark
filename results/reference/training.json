@@ -1,0 +1,126 @@
+{
+  "seed": 42,
+  "quick": false,
+  "cv_folds": 3,
+  "test_fraction_requested": 0.2,
+  "dataset_sha256": "d0ecfd94ec40a7f013af546113520175e70f78045af1798673c2680fe6f23c54",
+  "features_sha256": "2e4d941ad31adbfa9a2c93d595e2492da6f614feae63de0119ffab56fb1c1627",
+  "feature_config": {
+    "morgan": "hashed count",
+    "radius": 2,
+    "n_bits": 1024,
+    "chirality": true,
+    "descriptor_names": [
+      "MolWt",
+      "LogP",
+      "TPSA",
+      "HBD",
+      "HBA",
+      "RotatableBonds",
+      "RingCount",
+      "FractionCSP3",
+      "HeavyAtomCount",
+      "FormalCharge",
+      "NHOHCount",
+      "NOCount"
+    ]
+  },
+  "versions": {
+    "python": "3.11.16",
+    "sklearn": "1.7.2",
+    "rdkit": "2025.03.6",
+    "numpy": "2.2.6"
+  },
+  "splits": {
+    "random": {
+      "train_rows": 880,
+      "test_rows": 220,
+      "train_scaffolds": 6,
+      "test_scaffolds": 6,
+      "shared_scaffolds": 6,
+      "models": {
+        "mean": {
+          "params": {},
+          "cv_rmse": 3.300439387223991,
+          "warnings": {}
+        },
+        "random_forest": {
+          "params": {
+            "max_features": 0.3,
+            "min_samples_leaf": 3
+          },
+          "cv_rmse": 2.3782632657381275,
+          "warnings": {}
+        },
+        "gradient_boosting": {
+          "params": {
+            "l2_regularization": 10.0,
+            "max_leaf_nodes": 7
+          },
+          "cv_rmse": 2.427291867059098,
+          "warnings": {}
+        },
+        "mlp": {
+          "params": {
+            "regressor__net__alpha": 1.0,
+            "regressor__net__hidden_layer_sizes": [
+              64
+            ]
+          },
+          "cv_rmse": 2.3192322705581705,
+          "warnings": {
+            "RuntimeWarning: divide by zero encountered in matmul": 36648,
+            "RuntimeWarning: overflow encountered in matmul": 36648,
+            "RuntimeWarning: invalid value encountered in matmul": 36648
+          }
+        }
+      },
+      "winner_by_cv": "mlp"
+    },
+    "scaffold": {
+      "train_rows": 880,
+      "test_rows": 220,
+      "train_scaffolds": 4,
+      "test_scaffolds": 2,
+      "shared_scaffolds": 0,
+      "models": {
+        "mean": {
+          "params": {},
+          "cv_rmse": 3.3556845219911207,
+          "warnings": {}
+        },
+        "random_forest": {
+          "params": {
+            "max_features": 0.3,
+            "min_samples_leaf": 1
+          },
+          "cv_rmse": 3.120222149385814,
+          "warnings": {}
+        },
+        "gradient_boosting": {
+          "params": {
+            "l2_regularization": 10.0,
+            "max_leaf_nodes": 15
+          },
+          "cv_rmse": 3.2313067146172885,
+          "warnings": {}
+        },
+        "mlp": {
+          "params": {
+            "regressor__net__alpha": 1.0,
+            "regressor__net__hidden_layer_sizes": [
+              64
+            ]
+          },
+          "cv_rmse": 3.118187414383365,
+          "warnings": {
+            "RuntimeWarning: divide by zero encountered in matmul": 31588,
+            "RuntimeWarning: overflow encountered in matmul": 31588,
+            "RuntimeWarning: invalid value encountered in matmul": 31588
+          }
+        }
+      },
+      "winner_by_cv": "mlp"
+    }
+  }
+}
