@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+data/*
+!data/provenance.json
+results/*
+!results/reference/
+results/reference/*.joblib
+results/reference/features.npz
+results/reference/*_importance_raw.csv

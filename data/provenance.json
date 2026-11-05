@@ -1,0 +1,8 @@
+{
+  "url": "https://raw.githubusercontent.com/AsalMehradfar/LANTERN/11240f29ef92323649ae60d177b21df77e2d428b/data/AGILE.csv",
+  "upstream_commit": "11240f29ef92323649ae60d177b21df77e2d428b",
+  "sha256": "d0ecfd94ec40a7f013af546113520175e70f78045af1798673c2680fe6f23c54",
+  "rows": 1100,
+  "target": "Target column as distributed, unchanged; HeLa transfection assay",
+  "curation": "LANTERN curated version of the Xu et al. AGILE experiment"
+}

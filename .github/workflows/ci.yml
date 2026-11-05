@@ -1,0 +1,43 @@
+name: benchmark
+on:
+  push:
+    branches: [main, 'skills/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.19'
+          enable-cache: true
+      - run: uv sync --locked --python 3.11
+      - run: uv run ruff check src tests scripts
+      - run: uv run ruff format --check src tests scripts
+      - run: uv run pytest -q
+      - name: Verify saved real-data results
+        run: uv run python scripts/check_reference.py
+      - name: Exercise every CLI stage on the public dataset
+        run: |
+          uv run lnp-benchmark download
+          uv run lnp-benchmark featurize --output results/ci
+          uv run lnp-benchmark train --output results/ci --quick
+          uv run lnp-benchmark evaluate --output results/ci --bootstrap 50
+          uv run lnp-benchmark report --output results/ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-report
+          path: |
+            results/ci/*.json
+            results/ci/*.csv
+            results/ci/*.png
+            results/ci/*.md
