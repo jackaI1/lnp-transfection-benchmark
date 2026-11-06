@@ -3,6 +3,7 @@ on:
   push:
     branches: [main, 'skills/**']
   pull_request:
+  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -20,6 +21,12 @@ jobs:
           version: '0.12.19'
           enable-cache: true
       - run: uv sync --locked --python 3.11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --prefix /tmp/lnp-tools azurite@3.35.0 --no-audit --no-fund
+          echo /tmp/lnp-tools/node_modules/.bin >> "$GITHUB_PATH"
       - run: uv run ruff check src tests scripts
       - run: uv run ruff format --check src tests scripts
       - run: uv run pytest -q
@@ -32,6 +39,8 @@ jobs:
           uv run lnp-benchmark train --output results/ci --quick
           uv run lnp-benchmark evaluate --output results/ci --bootstrap 50
           uv run lnp-benchmark report --output results/ci
+          uv run python -m lnp_benchmark.artifact --run results/ci
+          uv run python scripts/serve_local.py --check --port 18080
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -41,3 +50,35 @@ jobs:
             results/ci/*.csv
             results/ci/*.png
             results/ci/*.md
+  infrastructure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile both Bicep templates
+        run: |
+          curl -fsSL https://github.com/Azure/bicep/releases/download/v0.39.26/bicep-linux-x64 -o /tmp/bicep
+          chmod +x /tmp/bicep
+          /tmp/bicep build infra/main.bicep --outfile /tmp/foundation.json
+          /tmp/bicep build infra/app.bicep --outfile /tmp/app.json
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      LNP_TEST_IMAGE: lnp-predict:test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.19'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --prefix /tmp/lnp-tools azurite@3.35.0 --no-audit --no-fund
+          echo /tmp/lnp-tools/node_modules/.bin >> "$GITHUB_PATH"
+      - run: uv sync --locked --python 3.11
+      - run: docker build -t "$LNP_TEST_IMAGE" .
+      - run: uv run pytest tests/test_serving.py -q
