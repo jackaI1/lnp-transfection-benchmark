@@ -3,6 +3,7 @@ import json
 import pandas as pd
 
 from lnp_benchmark.cli import main
+from lnp_benchmark.artifact import export_model, load_verified, predict
 
 
 def test_all_cli_stages_on_small_chemical_fixture(tmp_path):
@@ -24,3 +25,8 @@ def test_all_cli_stages_on_small_chemical_fixture(tmp_path):
     assert meta["splits"]["scaffold"]["shared_scaffolds"] == 0
     assert (tmp_path / "run/feature_importance.png").stat().st_size > 1000
     assert "Quick smoke run: True" in (tmp_path / "run/report.md").read_text()
+    artifact = tmp_path / "deploy/model.joblib"
+    checksum = export_model(out, artifact)
+    bundle = load_verified(artifact.read_bytes(), checksum)
+    assert bundle["model_id"] == "scaffold/" + meta["splits"]["scaffold"]["winner_by_cv"]
+    assert len(predict(bundle, smiles[:2])) == 2

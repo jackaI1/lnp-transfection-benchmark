@@ -16,10 +16,18 @@ dependencies = [
   "matplotlib==3.10.7",
   "joblib==1.5.2",
   "threadpoolctl==3.6.0",
+  "fastapi==0.121.0",
+  "uvicorn==0.38.0",
+  "azure-identity==1.25.1",
+  "azure-storage-blob==12.27.1",
 ]
 
 [dependency-groups]
-dev = ["pytest==8.4.2", "ruff==0.14.3"]
+dev = [
+    "httpx==0.28.1",
+    "pytest==8.4.2",
+    "ruff==0.14.3",
+]
 
 [project.scripts]
 lnp-benchmark = "lnp_benchmark.cli:main"

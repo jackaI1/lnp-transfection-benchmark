@@ -2,6 +2,8 @@ I built a lipid delivery prediction benchmark because I wanted to check whether 
 
 Lipid nanoparticles are tiny particles that carry RNA into cells. This project takes the structure of their ionizable lipid, the component that changes charge to help delivery, and predicts its measured delivery performance in a laboratory cell experiment. I train several models, then compare a random test set with a test set made of unfamiliar molecular skeletons. That makes it easier to see how much apparent accuracy depends on seeing related molecules during training.
 
+I can also send a batch of proposed structures to a small prediction service and get estimates without rerunning training. The [local service and Azure deployment guide](docs/deployment.md) shows how to start it and try a request. The predictions stay in the original experiment's units and carry the same limits as the benchmark.
+
 To try it, install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run the commands below. They download the public measurements, build molecular features, tune the models, and create a local report with plots. The [saved full report](results/reference/report.md) can be read without installing anything.
 
 ```bash
@@ -57,6 +59,19 @@ I reproduce the prediction task and the random-versus-scaffold comparison with m
 
 Further down in the code, RDKit turns each SMILES string, a text description of a molecule, into Morgan count fingerprints, which count local atom patterns, and named physicochemical descriptors such as molecular mass and polar surface area. Random forest, gradient boosting and a small multilayer perceptron (MLP, a neural network) use those inputs. A constant mean predictor is included as a reference. Cross-validation holds back training subsets to choose settings without using the final test labels. The scaffold experiment uses Bemis-Murcko skeletons and keeps entire families together in both the outer split and inner cross-validation. Acyclic molecules share one family.
 
+I use the trained scaffold model in a prediction service when I want to compare structures from another script. FastAPI provides the HTTP interface, Docker packages the app, and Azure Container Apps can run it behind an HTTPS address. The weights load separately from Blob Storage and must match a pinned checksum. I can try the complete path locally with Azurite, Microsoft's storage emulator:
+
+```bash
+npm install --prefix /tmp/lnp-tools azurite@3.35.0 --no-audit --no-fund
+export PATH="/tmp/lnp-tools/node_modules/.bin:$PATH"
+# After the training commands above:
+uv run python -m lnp_benchmark.artifact
+uv run python scripts/serve_local.py
+# Open http://127.0.0.1:8000/docs; Ctrl+C stops the server and emulator.
+```
+
+The service accepts 1 to 64 molecular strings per request, rejects invalid chemistry and returns predictions in input order with the model identity and checksum. GitHub Actions can train the full model, build and push its image to Azure Container Registry, upload the weights, and deploy the infrastructure from Bicep templates. I verified the emulator path and container in CI; I have not run a paid Azure deployment. The [deployment guide](docs/deployment.md) includes the request format, account setup, workflow steps, costs, cleanup and model-loading checks.
+
 Each stage can be rerun independently:
 
 ```bash
@@ -71,9 +86,10 @@ To refresh the committed full experiment, use `--output results/reference` in th
 
 The implementation lives in `src/lnp_benchmark/`: data validation and download, molecular features, split logic, model tuning, evaluation and report generation are separate modules. The [training record](results/reference/training.json), [all CV scores](results/reference/cv_results.csv), [exact partitions and folds](results/reference/assignments.csv), and [held-out predictions](results/reference/predictions.csv) make the figures auditable. `uv.lock` pins dependencies; `source_manifest.json` records source hashes for the saved run.
 
-The repository started with a placeholder README and no existing test suite. The 25 passing tests check valid and invalid chemistry, molecular equivalence, stereochemistry, whole-family splitting, grouped cross-validation, duplicate rejection, known metric values, cluster bootstrap behavior, and the complete CLI on a small test fixture. CI runs those tests, audits the saved full experiment against the real public data, and exercises every CLI stage on that data with a reduced training budget.
+The original 25 benchmark tests check valid and invalid chemistry, molecular equivalence, stereochemistry, whole-family splitting, grouped cross-validation, duplicate rejection, known metric values, cluster bootstrap behavior, and the complete CLI on a small test fixture. With the serving tests, 52 tests pass locally and one additional container test runs in the Linux image job. The new tests add Blob Storage round trips, checksum and compatibility failures, strict request validation and prediction parity. CI runs the tests, compiles both Bicep templates, builds and exercises the Linux container, audits the saved full experiment against the real public data, and exercises every CLI stage on that data with a reduced training budget.
 
 ```bash
+# Install Azurite as above before the storage tests.
 uv run pytest -q
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
