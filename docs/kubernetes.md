@@ -21,11 +21,11 @@ On a Linux machine with Docker, kind and kubectl, follow the executable workflow
 
 ## Azure AKS
 
-Azure resources cost money. The existing [deployment guide](deployment.md) explains training, creating a registry and uploading a checksum-pinned model. To provision AKS using an existing ACR in the same subscription, run:
+Azure resources cost money. The existing [deployment guide](deployment.md) explains training, creating a registry and uploading a checksum-pinned model. To provision AKS using an existing ACR in the same resource group, run:
 
 ```sh
 az deployment group create -g "$GROUP" --template-file infra/aks.bicep \
-  --parameters registryId="$ACR_RESOURCE_ID" clusterName=lnp-aks
+  --parameters registryName="$ACR_NAME" clusterName=lnp-aks
 az aks get-credentials -g "$GROUP" -n lnp-aks
 ```
 

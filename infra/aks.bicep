@@ -1,8 +1,8 @@
 @description('AKS cluster name')
 param clusterName string = 'lnp-aks'
 param location string = resourceGroup().location
-@description('Existing Azure Container Registry resource ID')
-param registryId string
+@description('Existing Azure Container Registry name in this resource group')
+param registryName string
 
 resource aks 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
   name: clusterName
@@ -24,8 +24,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
   }
 }
 resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
-  scope: resourceGroup(split(registryId, '/')[4])
-  name: last(split(registryId, '/'))
+  name: registryName
 }
 resource pull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(registry.id, aks.id, 'acrpull')
