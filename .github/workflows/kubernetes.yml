@@ -26,7 +26,7 @@ jobs:
           uv run python -m lnp_benchmark.artifact --run results/ci
       - run: docker build -t lnp-predict:kind .
       - name: Scan the image
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: lnp-predict:kind
           format: table
