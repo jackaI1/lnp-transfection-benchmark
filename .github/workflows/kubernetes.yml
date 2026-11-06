@@ -1,0 +1,107 @@
+name: Kubernetes lab
+on:
+  push:
+    branches: [main, 'skills/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  kind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.19'
+      - run: uv sync --locked --python 3.11
+      - name: Train a small real model
+        run: |
+          uv run lnp-benchmark download
+          uv run lnp-benchmark featurize --output results/ci
+          uv run lnp-benchmark train --output results/ci --quick
+          uv run python -m lnp_benchmark.artifact --run results/ci
+      - run: docker build -t lnp-predict:kind .
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: lnp-predict:kind
+          format: table
+          severity: CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+      - uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: lnp-ci
+      - name: Load image and start storage emulator
+        run: |
+          kind load docker-image lnp-predict:kind --name lnp-ci
+          kubectl apply -f kubernetes/overlays/kind/namespace.yaml
+          kubectl -n lnp create deployment azurite --image=mcr.microsoft.com/azure-storage/azurite:3.35.0 -- azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+          kubectl -n lnp set env deployment/azurite AZURITE_ACCOUNTS=lnptest:bG9jYWwtZW11bGF0b3Itb25seS1rZXktMzItYnl0ZXMhIQ==
+          kubectl -n lnp expose deployment azurite --port=10000
+          kubectl -n lnp rollout status deployment/azurite --timeout=180s
+      - name: Upload model and deploy service
+        run: |
+          kubectl -n lnp port-forward service/azurite 10000:10000 >/tmp/lnp-forward.log 2>&1 &
+          FORWARD_PID=$!
+          trap 'kill "$FORWARD_PID" 2>/dev/null || true; wait "$FORWARD_PID" 2>/dev/null || true' EXIT
+          sleep 3
+          uv run python scripts/kind_upload.py
+          SHA=$(sha256sum results/deploy/model.joblib | cut -d' ' -f1)
+          kubectl apply -k kubernetes/overlays/kind
+          CONFIG=$(kubectl -n lnp get configmap -o name | grep 'model-config-' | head -1)
+          kubectl -n lnp patch "$CONFIG" --type merge -p "{\"data\":{\"MODEL_SHA256\":\"$SHA\"}}"
+          kubectl -n lnp set env deployment/lnp-predict "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=lnptest;AccountKey=bG9jYWwtZW11bGF0b3Itb25seS1rZXktMzItYnl0ZXMhIQ==;BlobEndpoint=http://azurite:10000/lnptest;"
+          kubectl -n lnp rollout status deployment/lnp-predict --timeout=240s
+          kubectl -n lnp port-forward service/lnp-predict 18080:80 >/tmp/lnp-api.log 2>&1 &
+          API_PID=$!
+          trap 'kill "$API_PID" "$FORWARD_PID" 2>/dev/null || true; wait "$API_PID" "$FORWARD_PID" 2>/dev/null || true' EXIT
+          sleep 3
+          uv run python scripts/check_endpoint.py http://127.0.0.1:18080 --sha256 "$SHA"
+      - name: Check team resource templates on cluster
+        run: |
+          uv run python -c 'import json; from lnp_benchmark.platform import TeamRequest, team_resources; print(json.dumps(team_resources(TeamRequest(team="lipids", group="researchers"))))' | kubectl apply -f -
+          kubectl -n team-lipids get resourcequota,rolebinding,networkpolicy
+          test "$(kubectl auth can-i create deployments -n team-lipids --as=example --as-group=researchers)" = yes
+          test "$(kubectl auth can-i create deployments -n default --as=example --as-group=researchers)" = no
+      - name: Install Argo CD and reconcile from this branch
+        env:
+          REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          kubectl create namespace argocd
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.13.7/manifests/install.yaml >/dev/null
+          kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=240s
+          kubectl -n argocd rollout status deploy/argocd-server --timeout=240s
+          cat <<MANIFEST | kubectl apply -f -
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: lnp-gitops-test
+            namespace: argocd
+          spec:
+            project: default
+            source:
+              repoURL: https://github.com/jackaI1/lnp-transfection-benchmark.git
+              targetRevision: ${REVISION}
+              path: kubernetes/gitops-smoke
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: lnp
+            syncPolicy:
+              automated: {selfHeal: true, prune: true}
+          MANIFEST
+          for i in $(seq 1 60); do
+            if kubectl -n lnp get configmap gitops-proof >/dev/null 2>&1; then break; fi
+            sleep 5
+          done
+          kubectl -n lnp get configmap gitops-proof -o jsonpath='{.data.purpose}' | grep -q reconciled-from-git
+          kubectl -n lnp delete configmap gitops-proof
+          for i in $(seq 1 60); do
+            if kubectl -n lnp get configmap gitops-proof >/dev/null 2>&1; then exit 0; fi
+            sleep 5
+          done
+          exit 1
