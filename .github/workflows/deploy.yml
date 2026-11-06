@@ -54,6 +54,7 @@ jobs:
               --file results/deploy/model.joblib --overwrite true --only-show-errors -o none; then
               exit 0
             fi
+            echo "Waiting for Blob upload permission (attempt $attempt/20)"
             sleep 15
           done
           exit 1
@@ -62,15 +63,24 @@ jobs:
         run: |
           for attempt in $(seq 1 20); do
             if az acr login -n "$REGISTRY"; then exit 0; fi
+            echo "Waiting for registry login (attempt $attempt/20)"
             sleep 15
           done
           exit 1
       - uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          load: true
           platforms: linux/amd64
           tags: ${{ env.SERVER }}/lnp-predict:${{ github.sha }}
+      - name: Push image to registry
+        run: |
+          for attempt in $(seq 1 20); do
+            if docker push "$SERVER/lnp-predict:$GITHUB_SHA"; then exit 0; fi
+            echo "Waiting for registry push permission (attempt $attempt/20)"
+            sleep 15
+          done
+          exit 1
       - name: Deploy app and check live predictions
         run: |
           jq --arg image "$SERVER/lnp-predict:$GITHUB_SHA" \
