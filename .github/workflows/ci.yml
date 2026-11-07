@@ -61,6 +61,7 @@ jobs:
           chmod +x /tmp/bicep
           /tmp/bicep build infra/main.bicep --outfile /tmp/foundation.json
           /tmp/bicep build infra/app.bicep --outfile /tmp/app.json
+          /tmp/bicep build infra/aks.bicep --outfile /tmp/aks.json
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 15

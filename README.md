@@ -4,6 +4,8 @@ Lipid nanoparticles are tiny particles that carry RNA into cells. This project t
 
 I can also send a batch of proposed structures to a small prediction service and get estimates without rerunning training. The [local service and Azure deployment guide](docs/deployment.md) shows how to start it and try a request. The predictions stay in the original experiment's units and carry the same limits as the benchmark.
 
+I also run the prediction service on Kubernetes, a system that restarts and routes requests to containers. A small team setup API creates namespace, quota, access and network rules that I can review in Git before Argo CD applies them. The [Kubernetes guide](docs/kubernetes.md) explains the local lab and the Azure setup. I have tested the lab in CI; I have not deployed it to a paid Azure cluster.
+
 To try it, install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run the commands below. They download the public measurements, build molecular features, tune the models, and create a local report with plots. The [saved full report](results/reference/report.md) can be read without installing anything.
 
 ```bash
@@ -86,7 +88,7 @@ To refresh the committed full experiment, use `--output results/reference` in th
 
 The implementation lives in `src/lnp_benchmark/`: data validation and download, molecular features, split logic, model tuning, evaluation and report generation are separate modules. The [training record](results/reference/training.json), [all CV scores](results/reference/cv_results.csv), [exact partitions and folds](results/reference/assignments.csv), and [held-out predictions](results/reference/predictions.csv) make the figures auditable. `uv.lock` pins dependencies; `source_manifest.json` records source hashes for the saved run.
 
-The original 25 benchmark tests check valid and invalid chemistry, molecular equivalence, stereochemistry, whole-family splitting, grouped cross-validation, duplicate rejection, known metric values, cluster bootstrap behavior, and the complete CLI on a small test fixture. With the serving tests, 52 tests pass locally and one additional container test runs in the Linux image job. The new tests add Blob Storage round trips, checksum and compatibility failures, strict request validation and prediction parity. CI runs the tests, compiles both Bicep templates, builds and exercises the Linux container, audits the saved full experiment against the real public data, and exercises every CLI stage on that data with a reduced training budget.
+The original 25 benchmark tests check valid and invalid chemistry, molecular equivalence, stereochemistry, whole-family splitting, grouped cross-validation, duplicate rejection, known metric values, cluster bootstrap behavior, and the complete CLI on a small test fixture. The serving tests add model loading and API checks; the Kubernetes workflow also checks deployment and team isolation in a disposable cluster. The new tests add Blob Storage round trips, checksum and compatibility failures, strict request validation and prediction parity. CI runs the tests, compiles both Bicep templates, builds and exercises the Linux container, audits the saved full experiment against the real public data, and exercises every CLI stage on that data with a reduced training budget.
 
 ```bash
 # Install Azurite as above before the storage tests.
