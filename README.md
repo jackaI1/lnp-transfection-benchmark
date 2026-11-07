@@ -1,4 +1,4 @@
-I built a lipid delivery prediction benchmark because I wanted to check whether a model that looks accurate on familiar molecules can still predict a different lipid family.
+I built a way to compare predictions about tiny particles that carry RNA into cells because I wanted to know whether a prediction that works for familiar particles also works for new kinds. The project uses measurements from lab experiments to estimate how well a proposed particle might deliver its cargo, then checks how often those estimates are wrong.
 
 Lipid nanoparticles are tiny particles that carry RNA into cells. This project takes the structure of their ionizable lipid, the component that changes charge to help delivery, and predicts its measured delivery performance in a laboratory cell experiment. I train several models, then compare a random test set with a test set made of unfamiliar molecular skeletons. That makes it easier to see how much apparent accuracy depends on seeing related molecules during training.
 
